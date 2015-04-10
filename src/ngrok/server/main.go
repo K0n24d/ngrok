@@ -21,6 +21,7 @@ const (
 var (
 	tunnelRegistry  *TunnelRegistry
 	controlRegistry *ControlRegistry
+	extAuth         *ExtAuth
 
 	// XXX: kill these global variables - they're only used in tunnel.go for constructing forwarding URLs
 	opts      *Options
@@ -86,7 +87,7 @@ func tunnelListener(addr string, tlsConfig *tls.Config) {
 
 			switch m := rawMsg.(type) {
 			case *msg.Auth:
-				NewControl(tunnelConn, m)
+				NewControl(tunnelConn, m, extAuth)
 
 			case *msg.RegProxy:
 				NewProxy(tunnelConn, m)
@@ -111,6 +112,9 @@ func Main() {
 		panic(err)
 	}
 	rand.Seed(seed)
+
+	// init external authentification
+	extAuth = NewExtAuth(opts.authurl)
 
 	// init tunnel/control registry
 	registryCacheFile := os.Getenv("REGISTRY_CACHE_FILE")

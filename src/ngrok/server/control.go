@@ -24,6 +24,9 @@ type Control struct {
 	// auth message
 	auth *msg.Auth
 
+	// external authentification
+	rights *Rights
+
 	// actual connection
 	conn conn.Conn
 
@@ -60,7 +63,7 @@ type Control struct {
 	shutdown *util.Shutdown
 }
 
-func NewControl(ctlConn conn.Conn, authMsg *msg.Auth) {
+func NewControl(ctlConn conn.Conn, authMsg *msg.Auth, extAuth *ExtAuth) {
 	var err error
 
 	// create the object
@@ -101,6 +104,13 @@ func NewControl(ctlConn conn.Conn, authMsg *msg.Auth) {
 		return
 	}
 
+	c.rights, err = extAuth.Auth(authMsg)
+	if err != nil {
+		failAuth(err)
+		return
+	}
+	ctlConn.Debug("Token '%s' accepted", authMsg.User)
+
 	// register the control
 	if replaced := controlRegistry.Add(c.id, c); replaced != nil {
 		replaced.shutdown.WaitComplete()
@@ -127,6 +137,17 @@ func NewControl(ctlConn conn.Conn, authMsg *msg.Auth) {
 
 // Register a new tunnel on this control connection
 func (c *Control) registerTunnel(rawTunnelReq *msg.ReqTunnel) {
+
+	if err := c.rights.RequestTunnel(rawTunnelReq); err != nil {
+		c.out <- &msg.NewTunnel{Error: err.Error()}
+		if len(c.tunnels) == 0 {
+			c.shutdown.Begin()
+		}
+
+		// we're done
+		return
+	}
+
 	for _, proto := range strings.Split(rawTunnelReq.Protocol, "+") {
 		tunnelReq := *rawTunnelReq
 		tunnelReq.Protocol = proto
