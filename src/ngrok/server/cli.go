@@ -5,15 +5,16 @@ import (
 )
 
 type Options struct {
-	httpAddr   string
-	httpsAddr  string
-	tunnelAddr string
-	domain     string
-	tlsCrt     string
-	tlsKey     string
-	logto      string
-	loglevel   string
-	authurl    string
+	httpAddr      string
+	httpsAddr     string
+	tunnelAddr    string
+	domain        string
+	tlsCrt        string
+	tlsKey        string
+	logto         string
+	loglevel      string
+	authurl       string
+	authpostform  bool
 }
 
 func parseArgs() *Options {
@@ -26,17 +27,19 @@ func parseArgs() *Options {
 	logto := flag.String("log", "stdout", "Write log messages to this file. 'stdout' and 'none' have special meanings")
 	loglevel := flag.String("log-level", "DEBUG", "The level of messages to log. One of: DEBUG, INFO, WARNING, ERROR")
 	authurl := flag.String("auth-url", "", "URL for external authentification")
+	authpostform := flag.Bool("postform", false, "Post token as a form rather than sending JSON data")
 	flag.Parse()
 
 	return &Options{
-		httpAddr:   *httpAddr,
-		httpsAddr:  *httpsAddr,
-		tunnelAddr: *tunnelAddr,
-		domain:     *domain,
-		tlsCrt:     *tlsCrt,
-		tlsKey:     *tlsKey,
-		logto:      *logto,
-		loglevel:   *loglevel,
-		authurl:    *authurl,
+		httpAddr:     *httpAddr,
+		httpsAddr:    *httpsAddr,
+		tunnelAddr:   *tunnelAddr,
+		domain:       *domain,
+		tlsCrt:       *tlsCrt,
+		tlsKey:       *tlsKey,
+		logto:        *logto,
+		loglevel:     *loglevel,
+		authurl:      *authurl,
+		authpostform: *authpostform,
 	}
 }

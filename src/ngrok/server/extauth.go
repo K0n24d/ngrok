@@ -4,16 +4,23 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-//	"io/ioutil"
 	"net/http"
+	"net/url"
 	"ngrok/log"
 	"ngrok/msg"
 	"sort"
 	"strings"
 )
 
+type ExtAuthType int
+const (
+        PostJson ExtAuthType = iota
+        PostForm
+)
+
 type ExtAuth struct {
-	url string
+	authUrl string
+	authType ExtAuthType
 	log.Logger
 }
 
@@ -31,9 +38,10 @@ type rightsData struct {
 }
 
 // Creates a new ExtAuth object
-func NewExtAuth(u string) *ExtAuth {
+func NewExtAuth(u string, t ExtAuthType) *ExtAuth {
 	e := &ExtAuth{
-		url: u,
+		authUrl:    u,
+		authType:   t,
 		Logger: log.NewPrefixLogger(),
 	}
 
@@ -42,17 +50,30 @@ func NewExtAuth(u string) *ExtAuth {
 
 // Verifies that the Auth request is valid and returns an ExtAuthSession
 func (ea *ExtAuth) Auth(authMsg *msg.Auth) (*Rights, error) {
-	var r Rights;
+	var r Rights
 
-	if ea.url == "" {
+	if ea.authUrl == "" {
 		r.data.AllowAll = true
 		return &r, nil
 	}
 
-	b := []byte(`{"Token":"` + authMsg.User + `"}`)
-	resp, err := http.Post(ea.url, "application/json", bytes.NewBuffer(b))
+	log.Debug("External authentification request for token: " + authMsg.User)
+	var resp *http.Response
+	var err error
+	switch ea.authType {
+		case PostJson:
+			b := []byte(`{"Token":"` + authMsg.User + `"}`)
+			resp, err = http.Post(ea.authUrl, "application/json", bytes.NewBuffer(b))
+		case PostForm:
+			v := url.Values{}
+			v.Set("Token", authMsg.User)
+			resp, err = http.PostForm(ea.authUrl, v)
+		default:
+			log.Warn("Unknown external authentification type")
+			err = fmt.Errorf("External authentification unavailable")
+			return &r, err
+	}
 
-	log.Debug("External authentification request: " + `{"Token":"` + authMsg.User + `"}`)
 
 	if err != nil {
 		log.Warn(err.Error())
@@ -61,11 +82,6 @@ func (ea *ExtAuth) Auth(authMsg *msg.Auth) (*Rights, error) {
 	}
 
 	defer resp.Body.Close()
-
-//	body, _ := ioutil.ReadAll(resp.Body)
-//	bodyString := string(body)
-//	log.Debug(bodyString)
-//	err = json.Unmarshal(body, &(r.data))
 
 	decoder := json.NewDecoder(resp.Body)
 	err = decoder.Decode(&(r.data))
@@ -84,7 +100,7 @@ func (ea *ExtAuth) Auth(authMsg *msg.Auth) (*Rights, error) {
 }
 
 // Verifies that the tunnel request is valid
-func (r * Rights) RequestTunnel(rawTunnelReq *msg.ReqTunnel) error {
+func (r *Rights) RequestTunnel(rawTunnelReq *msg.ReqTunnel) error {
 	if r.data.AllowAll {
 		return nil
 	}
@@ -92,7 +108,7 @@ func (r * Rights) RequestTunnel(rawTunnelReq *msg.ReqTunnel) error {
 	switch rawTunnelReq.Protocol {
 	case "tcp":
 		port := int(rawTunnelReq.RemotePort)
-		if port!=0 {
+		if port != 0 {
 			i := sort.SearchInts(r.data.AllowedPorts, port)
 			if i < len(r.data.AllowedPorts) && r.data.AllowedPorts[i] == port {
 				return nil

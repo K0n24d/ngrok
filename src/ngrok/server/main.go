@@ -114,7 +114,11 @@ func Main() {
 	rand.Seed(seed)
 
 	// init external authentification
-	extAuth = NewExtAuth(opts.authurl)
+	authType := PostJson
+	if opts.authpostform {
+		authType = PostForm
+	}
+	extAuth = NewExtAuth(opts.authurl, authType)
 
 	// init tunnel/control registry
 	registryCacheFile := os.Getenv("REGISTRY_CACHE_FILE")
