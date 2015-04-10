@@ -66,7 +66,7 @@ func (ea *ExtAuth) Auth(authMsg *msg.Auth) (*Rights, error) {
 			resp, err = http.Post(ea.authUrl, "application/json", bytes.NewBuffer(b))
 		case PostForm:
 			v := url.Values{}
-			v.Set("Token", authMsg.User)
+			v.Set("token", authMsg.User)
 			resp, err = http.PostForm(ea.authUrl, v)
 		default:
 			log.Warn("Unknown external authentification type")
