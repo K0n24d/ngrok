@@ -127,7 +127,7 @@ func NewControl(ctlConn conn.Conn, authMsg *msg.Auth, extAuth *ExtAuth) {
 	}
 
 	// As a performance optimization, ask for a proxy connection up front
-	c.out <- &msg.ReqProxy{}
+	//c.out <- &msg.ReqProxy{}
 
 	// manage the connection
 	go c.manager()
