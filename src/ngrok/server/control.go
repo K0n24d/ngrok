@@ -10,6 +10,7 @@ import (
 	"runtime/debug"
 	"strings"
 	"time"
+	"net"
 )
 
 const (
@@ -146,6 +147,24 @@ func (c *Control) registerTunnel(rawTunnelReq *msg.ReqTunnel) {
 
 		// we're done
 		return
+	}
+
+	if len(opts.findme)>0 && rawTunnelReq.Subdomain == opts.findme {
+	// FindMe request so change registered name to source ip
+		var host string
+		var err error
+		if host, _, err = net.SplitHostPort(c.conn.RemoteAddr().String()); err != nil {
+			c.out <- &msg.NewTunnel{Error: err.Error()}
+			if len(c.tunnels) == 0 {
+				c.shutdown.Begin()
+			}
+
+			// we're done
+			return
+		}
+		c.conn.Debug("Findme Request %s -> %s", rawTunnelReq.Subdomain, host)
+		rawTunnelReq.Hostname = host
+		rawTunnelReq.Subdomain = ""
 	}
 
 	for _, proto := range strings.Split(rawTunnelReq.Protocol, "+") {

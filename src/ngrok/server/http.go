@@ -9,6 +9,7 @@ import (
 	"ngrok/log"
 	"strings"
 	"time"
+	"net"
 )
 
 const (
@@ -82,7 +83,6 @@ func httpHandler(c conn.Conn, proto string) {
 		c.Warn("Failed to read valid %s request: %v", proto, err)
 		c.Write([]byte(BadRequest))
 		return
-
 	}
 
 	// read out the Host header and auth from the request
@@ -92,6 +92,17 @@ func httpHandler(c conn.Conn, proto string) {
 
 	// done reading mux data, free up the request memory
 	vhostConn.Free()
+
+	// check if this is a findme request
+	if len(opts.findme)>0 && opts.findme+"."+opts.domain==host {
+		host, _, err = net.SplitHostPort(c.RemoteAddr().String())
+		if err != nil {
+			c.Warn("Failed to validate remote address %s / %v", c.RemoteAddr().String(), err)
+			c.Write([]byte(BadRequest))
+			return
+		}
+		log.Info("Hostname set to %s", host)
+	}
 
 	// We need to read from the vhost conn now since it mucked around reading the stream
 	c = conn.Wrap(vhostConn, "pub")

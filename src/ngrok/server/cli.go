@@ -15,6 +15,7 @@ type Options struct {
 	loglevel      string
 	authurl       string
 	authpostform  bool
+	findme        string
 }
 
 func parseArgs() *Options {
@@ -28,6 +29,7 @@ func parseArgs() *Options {
 	loglevel := flag.String("log-level", "DEBUG", "The level of messages to log. One of: DEBUG, INFO, WARNING, ERROR")
 	authurl := flag.String("auth-url", "", "URL for external authentification")
 	authpostform := flag.Bool("postform", false, "Post token as a form rather than sending JSON data")
+	findme := flag.String("findme", "", "Subdomain to use for find-me feature")
 	flag.Parse()
 
 	return &Options{
@@ -41,5 +43,6 @@ func parseArgs() *Options {
 		loglevel:     *loglevel,
 		authurl:      *authurl,
 		authpostform: *authpostform,
+		findme:       *findme,
 	}
 }
