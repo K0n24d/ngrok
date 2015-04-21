@@ -30,6 +30,14 @@ Content-Length: 12
 
 Bad Request
 `
+
+	RedirectHttps = `HTTP/1.0 301 Moved Permanently
+Content-Length: %d
+Location: https://%s
+
+Content Moved to https://%s
+`
+
 )
 
 // Listens for new http(s) connections from the public internet
@@ -74,11 +82,13 @@ func httpHandler(c conn.Conn, proto string) {
 		c.Warn("Failed to read valid %s request: %v", proto, err)
 		c.Write([]byte(BadRequest))
 		return
+
 	}
 
 	// read out the Host header and auth from the request
 	host := strings.ToLower(vhostConn.Host())
 	auth := vhostConn.Request.Header.Get("Authorization")
+	url := fmt.Sprintf("%s%s", host, vhostConn.Request.URL)
 
 	// done reading mux data, free up the request memory
 	vhostConn.Free()
@@ -90,6 +100,17 @@ func httpHandler(c conn.Conn, proto string) {
 	c.Debug("Found hostname %s in request", host)
 	tunnel := tunnelRegistry.Get(fmt.Sprintf("%s://%s", proto, host))
 	if tunnel == nil {
+		if proto == "http" {
+			c.Debug("No http tunnel found, so check if we have one for https://%s", host)
+			// check if we have an HTTPS tunnel for this HTTP request and redirect
+			tunnel = tunnelRegistry.Get(fmt.Sprintf("https://%s", host))
+			if tunnel != nil {
+				// get the complete requested URL
+				c.Debug("Redirecting to https for request %s", url)
+				c.Write([]byte(fmt.Sprintf(RedirectHttps, len(url)+26, url, url)))
+				return
+			}
+		}
 		c.Info("No tunnel found for hostname %s", host)
 		c.Write([]byte(fmt.Sprintf(NotFound, len(host)+18, host)))
 		return
