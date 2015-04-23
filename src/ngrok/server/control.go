@@ -164,7 +164,9 @@ func (c *Control) registerTunnel(rawTunnelReq *msg.ReqTunnel) {
 		}
 		c.conn.Debug("Findme Request %s -> %s", rawTunnelReq.Subdomain, host)
 		rawTunnelReq.Hostname = host
-		rawTunnelReq.Subdomain = ""
+		// Keep the Subdomain as is as we will use it later to know that 
+		// we need to check the source ip
+		//rawTunnelReq.Subdomain = ""
 	}
 
 	for _, proto := range strings.Split(rawTunnelReq.Protocol, "+") {

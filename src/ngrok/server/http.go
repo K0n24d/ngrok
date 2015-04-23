@@ -39,6 +39,12 @@ Location: https://%s
 Content Moved to https://%s
 `
 
+	Forbidden = `HTTP/1.0 403 Forbidden
+Content-Length: 10
+
+Forbidden
+`
+
 )
 
 // Listens for new http(s) connections from the public internet
@@ -93,15 +99,19 @@ func httpHandler(c conn.Conn, proto string) {
 	// done reading mux data, free up the request memory
 	vhostConn.Free()
 
+	// get the remote address for this connection
+	var remoteAddr string
+	remoteAddr, _, err = net.SplitHostPort(c.RemoteAddr().String())
+	if err != nil {
+		c.Warn("Failed to validate remote address %s / %v", c.RemoteAddr().String(), err)
+		c.Write([]byte(BadRequest))
+		return
+	}
+
 	// check if this is a findme request
-	if len(opts.findme)>0 && opts.findme+"."+opts.domain==host {
-		host, _, err = net.SplitHostPort(c.RemoteAddr().String())
-		if err != nil {
-			c.Warn("Failed to validate remote address %s / %v", c.RemoteAddr().String(), err)
-			c.Write([]byte(BadRequest))
-			return
-		}
-		log.Info("Hostname set to %s", host)
+	if len(opts.findme)>0 && host==opts.findme+"."+opts.domain {
+		host = remoteAddr
+		log.Info("FindMe connection: hostname set to %s", host)
 	}
 
 	// We need to read from the vhost conn now since it mucked around reading the stream
@@ -125,6 +135,15 @@ func httpHandler(c conn.Conn, proto string) {
 		c.Info("No tunnel found for hostname %s", host)
 		c.Write([]byte(fmt.Sprintf(NotFound, len(host)+18, host)))
 		return
+	}
+
+	// If this a findme tunnel make sure we only connect from the right ip
+	if len(opts.findme)>0 && tunnel.req.Subdomain==opts.findme {
+		if remoteAddr != tunnel.req.Hostname {
+			c.Info("Trying to access findme tunnel from wrong IP: %s->%s", )
+			c.Write([]byte(Forbidden))
+			return
+		}
 	}
 
 	// If the client specified http auth and it doesn't match this request's auth
